@@ -58,6 +58,17 @@ const navItems = computed(() => {
     const userRole = user.value?.role?.toUpperCase();
     const userPosition = user.value?.position?.toLowerCase();
 
+    // --- Trainee Navigation ---
+    if (userPosition === 'trainee') {
+        items.push(
+            { label: 'Trainee Dashboard', href: route('trainee.dashboard'), icon: LayoutDashboard },
+            { label: 'Time In/Out', href: route('trainee.timekeeping'), icon: Clock },
+            { label: 'Attendance', href: route('trainee.attendance'), icon: CalendarDays },
+            { label: 'Payslips', href: route('trainee.payslip'), icon: HandCoins }
+        );
+        return items;
+    }
+
     // --- HRM Department Logic ---
     if (userRole === 'HRM') {
         if (userPosition === 'manager') {
