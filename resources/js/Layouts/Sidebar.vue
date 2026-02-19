@@ -106,11 +106,12 @@ const navItems = computed(() => {
     }
 
     if (userRole === 'FIN') {
-        if (userPosition === 'manager') {
-            items.push({ label: 'Finance Dashboard', href: route('fin.manager.dashboard'), icon: Wallet });
-        } else if (userPosition === 'staff') {
-            items.push({ label: 'Finance Portal', href: route('fin.employee.dashboard'), icon: Wallet });
-        }
+        items.push(
+            { label: 'Finance Dashboard', href: route('finance.dashboard'), icon: Wallet },
+            { label: 'Transactions', href: route('finance.transactions.index'), icon: CreditCard },
+            { label: 'Invoices & Bills', href: route('finance.invoices-bills.index'), icon: FileUser },
+            { label: 'Reports', href: route('finance.reports.index'), icon: ChartNoAxesCombined }
+        );
     }
 
     if (userRole === 'MAN') {

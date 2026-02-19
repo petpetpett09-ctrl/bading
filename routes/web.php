@@ -26,6 +26,10 @@ use App\Http\Controllers\trainee\TraineeDashboardController;
 use App\Http\Controllers\trainee\TraineeTimeKeepingController;
 use App\Http\Controllers\trainee\TraineeAttendanceController;
 use App\Http\Controllers\trainee\TraineePayslipController;
+use App\Http\Controllers\finance\FinanceDashboardController;
+use App\Http\Controllers\finance\FinanceTransactionController;
+use App\Http\Controllers\finance\FinanceInvoiceBillController;
+use App\Http\Controllers\finance\FinanceReportController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -377,6 +381,44 @@ Route::prefix('dashboard/eco')->name('eco.')->middleware(['auth', 'verified'])->
     Route::get('/staff', [DashboardController::class, 'index'])
         ->middleware(['role:ECO', 'position:staff'])
         ->name('employee.dashboard');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Finance Module Routes
+|--------------------------------------------------------------------------
+*/
+Route::prefix('finance')->name('finance.')->middleware(['auth', 'verified', 'position:staff,manager'])->group(function () {
+    // Finance Dashboard
+    Route::get('/dashboard', [FinanceDashboardController::class, 'index'])->name('dashboard');
+
+    // Transactions Management
+    Route::get('/transactions', [FinanceTransactionController::class, 'index'])->name('transactions.index');
+    Route::get('/transactions/create', [FinanceTransactionController::class, 'create'])->name('transactions.create');
+    Route::post('/transactions', [FinanceTransactionController::class, 'store'])->name('transactions.store');
+    Route::get('/transactions/{transaction}/edit', [FinanceTransactionController::class, 'edit'])->name('transactions.edit');
+    Route::patch('/transactions/{transaction}', [FinanceTransactionController::class, 'update'])->name('transactions.update');
+    Route::delete('/transactions/{transaction}', [FinanceTransactionController::class, 'destroy'])->name('transactions.destroy');
+    Route::get('/transactions/export', [FinanceTransactionController::class, 'export'])->name('transactions.export');
+
+    // Invoices and Bills
+    Route::get('/invoices-bills', [FinanceInvoiceBillController::class, 'index'])->name('invoices-bills.index');
+    
+    // Invoice routes
+    Route::get('/invoices/create', [FinanceInvoiceBillController::class, 'createInvoice'])->name('invoices.create');
+    Route::post('/invoices', [FinanceInvoiceBillController::class, 'storeInvoice'])->name('invoices.store');
+    Route::patch('/invoices/{invoice}/pay', [FinanceInvoiceBillController::class, 'markInvoicePaid'])->name('invoices.pay');
+    Route::get('/invoices/{invoice}/download', [FinanceInvoiceBillController::class, 'downloadInvoice'])->name('invoices.download');
+
+    // Bill routes
+    Route::get('/bills/create', [FinanceInvoiceBillController::class, 'createBill'])->name('bills.create');
+    Route::post('/bills', [FinanceInvoiceBillController::class, 'storeBill'])->name('bills.store');
+    Route::patch('/bills/{bill}/pay', [FinanceInvoiceBillController::class, 'markBillPaid'])->name('bills.pay');
+    Route::get('/bills/{bill}/download', [FinanceInvoiceBillController::class, 'downloadBill'])->name('bills.download');
+
+    // Reports
+    Route::get('/reports', [FinanceReportController::class, 'index'])->name('reports.index');
+    Route::get('/reports/export', [FinanceReportController::class, 'exportReport'])->name('reports.export');
 });
 
 require __DIR__.'/auth.php';

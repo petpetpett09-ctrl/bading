@@ -3,8 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\Transaction;
+use App\Models\Invoice;
+use App\Models\Bill;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
 class DashboardController extends Controller
@@ -16,7 +20,7 @@ class DashboardController extends Controller
         $position = strtolower($user->position);
 
         // For debugging
-        \Log::info('Dashboard access', [
+        Log::info('Dashboard access', [
             'user_id' => $user->id,
             'role' => $role,
             'position' => $position,
@@ -50,7 +54,7 @@ class DashboardController extends Controller
             'WAR' => $this->handleWarDashboard($position),
             'CRM' => $this->handleCrmDashboard($position),
             'ECO' => $this->handleEcoDashboard($position),
-            default => $this->renderDefaultDashboard($user),
+            default => $this->renderMainDashboard($user),
         };
     }
 
@@ -132,16 +136,8 @@ class DashboardController extends Controller
 
     private function handleFinDashboard(string $position)
     {
-        $view = $position === 'manager' ? 'Dashboard/FIN/Manager/index' : 'Dashboard/FIN/Employee/index';
-
-        return Inertia::render($view, [
-            'user' => Auth::user(),
-            'stats' => [
-                'totalRevenue' => 0,
-                'pendingInvoices' => 0,
-                'overduePayments' => 0,
-            ],
-        ]);
+        // Render main dashboard with finance metrics for all FIN users
+        return $this->renderMainDashboard(Auth::user());
     }
 
     private function handleManDashboard(string $position)
@@ -261,14 +257,76 @@ class DashboardController extends Controller
         ]);
     }
 
-    private function renderDefaultDashboard($user)
+    private function renderMainDashboard($user)
     {
+        // Fetch finance metrics for the dashboard
+        $currentMonth = now()->startOfMonth();
+
+        // Calculate current month revenue (sum of income transactions)
+        $currentRevenue = Transaction::where('type', 'income')
+            ->whereYear('date', now()->year)
+            ->whereMonth('date', now()->month)
+            ->sum('amount');
+
+        // Calculate current month expenses (sum of expense transactions)
+        $currentExpenses = Transaction::where('type', 'expense')
+            ->whereYear('date', now()->year)
+            ->whereMonth('date', now()->month)
+            ->sum('amount');
+
+        // Net profit for current month
+        $netProfit = $currentRevenue - $currentExpenses;
+
+        // Cash flow for last 30 days (net of income - expenses)
+        $thirtyDaysAgo = now()->subDays(30);
+        $cashFlow = Transaction::where('type', 'income')
+            ->where('date', '>=', $thirtyDaysAgo)
+            ->sum('amount')
+            - Transaction::where('type', 'expense')
+            ->where('date', '>=', $thirtyDaysAgo)
+            ->sum('amount');
+
+        // Outstanding invoices
+        $outstandingInvoices = Invoice::whereIn('status', ['sent', 'overdue'])
+            ->get();
+        $outstandingInvoicesCount = $outstandingInvoices->count();
+        $outstandingInvoicesAmount = $outstandingInvoices->sum('total_amount');
+
+        // Upcoming bills (due in next 30 days)
+        $upcomingBills = Bill::whereIn('status', ['approved', 'received'])
+            ->where('due_date', '<=', now()->addDays(30))
+            ->where('due_date', '>=', now())
+            ->get();
+        $upcomingBillsCount = $upcomingBills->count();
+        $upcomingBillsAmount = $upcomingBills->sum('total_amount');
+
+        // Get recent transactions (last 10)
+        $recentTransactions = Transaction::with('account')
+            ->orderBy('date', 'desc')
+            ->limit(10)
+            ->get()
+            ->map(fn($t) => [
+                'id' => $t->id,
+                'date' => $t->date->format('M d, Y'),
+                'description' => $t->description,
+                'amount' => $t->amount,
+                'type' => $t->type,
+                'category' => $t->category,
+                'account_name' => $t->account?->name,
+            ]);
+
         return Inertia::render('Dashboard', [
-            'stats' => [
-                'total_tasks' => 0,
-                'pending_tasks' => 0,
-                'completed_tasks' => 0,
+            'metrics' => [
+                'current_revenue' => round($currentRevenue, 2),
+                'current_expenses' => round($currentExpenses, 2),
+                'net_profit' => round($netProfit, 2),
+                'cash_flow_30_days' => round($cashFlow, 2),
+                'outstanding_invoices_count' => $outstandingInvoicesCount,
+                'outstanding_invoices_amount' => round($outstandingInvoicesAmount, 2),
+                'upcoming_bills_count' => $upcomingBillsCount,
+                'upcoming_bills_amount' => round($upcomingBillsAmount, 2),
             ],
+            'recent_transactions' => $recentTransactions,
             'user' => $user,
         ]);
     }
